@@ -1,10 +1,6 @@
 import { Request, Response } from "express";
-
-const todos = [
-    { id: 1, text: 'Buy milk', completedAt: new Date() },
-    { id: 2, text: 'Do homework', completedAt: new Date() },
-    { id: 3, text: 'Go to the gym', completedAt: null },
-];
+import { prisma } from "../../data/postgres";
+import { CreateTodoDto, UpdateTodoDto } from "../../domain/dtos";
 
 export class TodosController {
 
@@ -13,65 +9,80 @@ export class TodosController {
 
     }
 
-    public getTodos = (req: Request, res: Response) => {
-        return res.json(todos);
+    public getTodos = async (req: Request, res: Response) => {
+        const todos = await prisma.todo.findMany();
+        res.json(todos);
     }
 
-    public getTodoById = (req: Request, res: Response) => {
+    public getTodoById = async (req: Request, res: Response) => {
         const { id } = req.params;
         if (isNaN(Number(id))) return res.status(400).json({ message: 'Invalid id' });
-        const todo = todos.find(todo => todo.id === Number(id));
+
+        const todo = await prisma.todo.findUnique({
+            where: {
+                id: Number(id),
+            }
+        });
+
         if (!todo) {
             return res.status(404).json({ message: 'Todo not found' });
         }
+
         return res.json(todo);
     }
 
-    public createTodo = (req: Request, res: Response) => {
+    public createTodo = async (req: Request, res: Response) => {
 
-        const { text } = req.body;
-        if (!text) return res.status(400).json({ message: 'Text property is required' });
+        const [error, createTodoDto] = CreateTodoDto.create(req.body);
 
-        const newTodo = {
-            id: todos.length + 1,
-            text: text,
-            completedAt: new Date(),
-        };
+        if (error) return res.status(400).json({ error });
 
-        todos.push(newTodo);
-        res.json(newTodo)
-    }
-
-    public updateTodo = (req: Request, res: Response) => {
-        const { id } = req.params;
-        const { text, completedAt } = req.body;
-
-        if (isNaN(Number(id))) return res.status(400).json({ message: 'Invalid id' });
-        //if (!text) return res.status(400).json({ message: 'Text property is required' });
-
-        const todo = todos.find(todo => todo.id === Number(id));
-        if (!todo) {
-            return res.status(404).json({ message: 'Todo not found' });
-        }
-
-        todo.text = text || todo.text;
-        (completedAt === 'null')
-            ? todo.completedAt = null
-            : todo.completedAt = new Date(completedAt) || todo.completedAt;
+        const todo = await prisma.todo.create({
+            data: createTodoDto!,
+        })
 
         res.json(todo);
     }
 
-    public deleteTodo = (req: Request, res: Response) => {
+    public updateTodo = async (req: Request, res: Response) => {
         const { id } = req.params;
+        const [error, updateTodoDto] = UpdateTodoDto.create({ ...req.body, id });
 
-        if (isNaN(Number(id))) return res.status(400).json({ message: 'Invalid id' });
+        if (error) return res.status(400).json({ error });
 
-        const todo = todos.find(todo => todo.id === Number(id));
+        const todo = await prisma.todo.findFirst({
+            where: {
+                id: Number(id),
+            }
+        });
+
         if (!todo) return res.status(404).json({ message: 'Todo not found' });
 
-        todos.splice(todos.indexOf(todo), 1);
-        res.json(todo);
+        const updateTodo = await prisma.todo.update({
+            where: {
+                id: Number(id),
+            },
+            data: updateTodoDto!.values,
+        });
+
+        res.json(updateTodo);
+    }
+
+    public deleteTodo = async (req: Request, res: Response) => {
+        const { id } = req.params;
+
+        if (isNaN(Number(id))) return res.status(400).json({ message: 'Invalid id' });
+
+        const deleteTodo = await prisma.todo.delete({
+            where: {
+                id: Number(id),
+            }
+        })
+
+        //if (!deleteTodo) return res.status(404).json({ message: 'Todo not found' });
+
+        //todos.splice(todos.indexOf(todo), 1);
+        res.json(deleteTodo);
     }
 
 }

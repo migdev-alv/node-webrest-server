@@ -3,3 +3,6 @@ node_modules/
 keys/
 .env
 .vscode/
+
+/postgres
+dist/
