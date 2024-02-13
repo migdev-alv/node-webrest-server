@@ -2,6 +2,7 @@
 node_modules/
 keys/
 .env
+.env.test
 .vscode/
 
 /postgres
